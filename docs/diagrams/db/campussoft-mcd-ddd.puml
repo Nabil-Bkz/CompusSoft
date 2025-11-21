@@ -1,0 +1,501 @@
+@startuml CampusSoft - Modèle Conceptuel de Données (DDD)
+!define DDD_COLOR #E8F4F8
+
+skinparam class {
+    BackgroundColor<<AggregateRoot>> DDD_COLOR
+    BackgroundColor<<ValueObject>> #FFF4E6
+    BackgroundColor<<Entity>> #FFFFFF
+    ArrowColor #2E7D32
+    BorderColor #1565C0
+}
+
+title CampusSoft - Modèle Conceptuel de Données (DDD)\nGestion des Logiciels Pédagogiques
+
+' ============================================
+' VALUE OBJECTS
+' ============================================
+package "Value Objects" <<Cloud>> {
+    class RequestStatus <<ValueObject>> {
+        + nouvelle : enum
+        + en_cours : enum
+        + installée : enum
+        + expirée : enum
+        + fermée : enum
+    }
+    
+    class AcademicYear <<ValueObject>> {
+        + year : String
+        + startDate : Date
+        + endDate : Date
+    }
+    
+    class SoftwareVersion <<ValueObject>> {
+        + version : String
+        + major : Integer
+        + minor : Integer
+        + patch : Integer
+    }
+    
+    class AttestationStatus <<ValueObject>> {
+        + pending : enum
+        + confirmed : enum
+        + expired : enum
+        + not_required : enum
+    }
+    
+    class SoftwareInstallationStatus <<ValueObject>> {
+        + en_attente : enum
+        + tous_installés : enum
+        + partiellement_installé : enum
+        + problème : enum
+        + changement : enum
+    }
+    
+    class RésuméInstallation <<ValueObject>> {
+        + logicielId : UUID
+        + logicielNom : String
+        + nombreSallesTotales : Integer
+        + nombreSallesInstallées : Integer
+        + nombreSallesNonInstallées : Integer
+        + statutInstallation : SoftwareInstallationStatus
+        + sallesInstallées : List<Salle>
+        + sallesNonInstallées : List<Salle>
+    }
+    
+    class RoomType <<ValueObject>> {
+        + département : enum
+        + mutualisée : enum
+    }
+    
+    class UserRole <<ValueObject>> {
+        + enseignant : enum
+        + responsable_département : enum
+        + responsable_salle : enum
+        + service_informatique : enum
+        + administrateur : enum
+    }
+}
+
+' ============================================
+' USER MANAGEMENT AGGREGATE
+' ============================================
+package "User Management" <<Folder>> {
+    class Utilisateur <<AggregateRoot>> {
+        + id : UUID
+        + email : String
+        + nom : String
+        + prénom : String
+        + ssoId : String
+        + rôle : UserRole
+        + dateCréation : DateTime
+        + actif : Boolean
+        --
+        + peutCréerDemande() : Boolean
+        + peutConsulterDemande() : Boolean
+    }
+    
+    class Enseignant <<Entity>> {
+        + id : UUID
+        + utilisateurId : UUID
+        + numéroEmployé : String
+        + bureau : String
+        --
+        + créerDemande(logiciels[], salles[]) : Demande
+        + mettreÀJourDemande(demandeId, logiciels[], salles[]) : Boolean
+        + fermerDemande(demandeId, commentaireFermeture) : Boolean
+        + réattesterDemande(demandeId) : Boolean
+        + peutModifierDemande(demandeId) : Boolean
+        + peutFermerDemande(demandeId) : Boolean
+    }
+    
+    class ServiceInformatique <<Entity>> {
+        + id : UUID
+        + utilisateurId : UUID
+        --
+        + traiterDemande(demandeId) : Boolean
+        + installerLogiciel(demandeId) : Boolean
+        + désinstallerLogiciel(demandeId) : Boolean
+        + mettreÀJourCatalogue() : Boolean
+        + mettreÀJourInstallationLogiciel(demandeId, demandeLogicielId, demandeLogicielSalleId, estInstallée, dateInstallation, commentaire) : Boolean
+        + marquerLogicielInstalléDansSalle(demandeLogicielSalleId, dateInstallation, commentaire) : Boolean
+        + marquerLogicielNonInstalléDansSalle(demandeLogicielSalleId, commentaire) : Boolean
+        + mettreÀJourInstallationLogicielParSalle(demandeLogicielId, salleId, estInstallée, dateInstallation, commentaire) : Boolean
+        + mettreÀJourInstallationToutesSalles(demandeLogicielId, estInstallée, dateInstallation, commentaire) : Boolean
+        + obtenirDemandesEnCours() : List<Demande>
+        + obtenirDétailsInstallationDemande(demandeId) : Map<DemandeLogiciel, List<DemandeLogicielSalle>>
+    }
+    
+    class Administrateur <<Entity>> {
+        + id : UUID
+        + utilisateurId : UUID
+        --
+        + configurerPlateforme() : Boolean
+        + gérerIntégrations() : Boolean
+    }
+    
+    Utilisateur ||--o{ Enseignant : "peut être"
+    Utilisateur ||--o{ ServiceInformatique : "peut être"
+    Utilisateur ||--o{ Administrateur : "peut être"
+    
+    Utilisateur ..> UserRole : uses
+}
+
+' ============================================
+' INFRASTRUCTURE AGGREGATE
+' ============================================
+package "Infrastructure" <<Folder>> {
+    class Département <<AggregateRoot>> {
+        + id : UUID
+        + nom : String
+        + code : String
+        + description : String
+        + dateCréation : DateTime
+        --
+        + obtenirSalles() : List<Salle>
+        + obtenirEnseignants() : List<Enseignant>
+    }
+    
+    class Salle <<Entity>> {
+        + id : UUID
+        + nom : String
+        + capacité : Integer
+        + type : RoomType
+        + localisation : String
+        + description : String
+        --
+        + estMutualisée() : Boolean
+        + appartientÀ(départementId) : Boolean
+        + obtenirLogicielsInstallés() : List<Logiciel>
+        + obtenirDemandesActives() : List<Demande>
+    }
+    
+    Département ||--o{ Salle : "possède"
+    Département ||--o{ Enseignant : "regroupe"
+    
+    Salle ..> RoomType : uses
+}
+
+' ============================================
+' SOFTWARE CATALOG AGGREGATE
+' ============================================
+package "Software Catalog" <<Folder>> {
+    class Logiciel <<AggregateRoot>> {
+        + id : UUID
+        + nom : String
+        + éditeur : String
+        + version : SoftwareVersion
+        + usage : String
+        + description : String
+        + duréeMax : Integer {max 1 an}
+        + licence : String
+        + dateAjout : DateTime
+        + actif : Boolean
+        --
+        + obtenirInstallations() : List<Demande>
+        + estInstalléDans(salleId) : Boolean
+    }
+    
+    Logiciel ..> SoftwareVersion : uses
+}
+
+' ============================================
+' REQUEST MANAGEMENT AGGREGATE
+' ============================================
+package "Request Management" <<Folder>> {
+    class Demande <<AggregateRoot>> {
+        + id : UUID
+        + enseignantId : UUID
+        + dateCréation : DateTime
+        + dateDernièreModification : DateTime {nullable}
+        + dateFermeture : DateTime {nullable}
+        + dateSouhaitee : Date
+        + anneeUniversitaire : AcademicYear
+        + état : RequestStatus
+        + commentaire : String
+        + commentaireFermeture : String {nullable}
+        + dateExpiration : DateTime {nullable}
+        --
+        + soumettre() : Boolean
+        + marquerEnCours() : Boolean
+        + obtenirStatutGlobalInstallation() : SoftwareInstallationStatus
+        + marquerExpirée() : Boolean
+        + fermer(commentaireFermeture) : Boolean
+        + obtenirLogiciels() : List<DemandeLogiciel>
+        + obtenirSalles() : List<Salle>
+        + obtenirRésuméInstallationParLogiciel() : Map<Logiciel, RésuméInstallation>
+        + obtenirDétailsInstallationComplets() : List<DétailInstallation>
+        + peutÊtreRéattestée() : Boolean
+        + peutÊtreModifiée() : Boolean
+        + peutÊtreFermée() : Boolean
+        + peutÊtreSupprimée() : Boolean
+        + ajouterLogiciel(logicielId, salles[]) : Boolean
+        + supprimerLogiciel(demandeLogicielId) : Boolean
+        + modifierLogiciel(demandeLogicielId, salles[]) : Boolean
+        + mettreÀJour(dateSouhaitee, commentaire) : Boolean
+    }
+    
+    class DemandeLogiciel <<Entity>> {
+        + id : UUID
+        + demandeId : UUID
+        + logicielId : UUID
+        + statutInstallation : SoftwareInstallationStatus
+        + dateInstallation : DateTime {nullable}
+        + commentaire : String {pour problème/changement}
+        + dateChangement : DateTime {nullable}
+        --
+        + obtenirStatutInstallation() : SoftwareInstallationStatus
+        + marquerTousInstallés() : Boolean
+        + marquerPartiellementInstallé() : Boolean
+        + signalerProblème(commentaire) : Boolean
+        + signalerChangement(commentaire) : Boolean
+        + obtenirSalles() : List<DemandeLogicielSalle>
+        + obtenirSallesInstallées() : List<Salle>
+        + obtenirSallesNonInstallées() : List<Salle>
+        + obtenirStatutInstallationParSalle() : Map<Salle, Boolean>
+        + obtenirDétailsInstallation() : Map<Salle, DétailInstallation>
+        + peutÊtreModifié() : Boolean
+        + ajouterSalle(salleId) : Boolean
+        + supprimerSalle(demandeLogicielSalleId) : Boolean
+        + modifierSalles(salles[]) : Boolean
+    }
+    
+    class DemandeLogicielSalle <<Entity>> {
+        + id : UUID
+        + demandeLogicielId : UUID
+        + salleId : UUID
+        + dateAssignation : DateTime
+        + dateInstallation : DateTime {nullable}
+        + estInstallée : Boolean
+        + commentaireInstallation : String {nullable}
+        + dateDernièreModification : DateTime {nullable}
+        --
+        + assignerÀ(salleId) : Boolean
+        + marquerInstallée(dateInstallation, commentaire) : Boolean
+        + marquerNonInstallée(commentaire) : Boolean
+        + mettreÀJourStatut(estInstallée, dateInstallation, commentaire) : Boolean
+        + obtenirStatutInstallation() : Boolean
+        + obtenirDétailsInstallation() : DétailInstallation
+    }
+    
+    class DétailInstallation <<ValueObject>> {
+        + salleId : UUID
+        + salleNom : String
+        + estInstallée : Boolean
+        + dateInstallation : DateTime {nullable}
+        + dateAssignation : DateTime
+        + commentaire : String {nullable}
+    }
+    
+    Demande ||--o{ DemandeLogiciel : "contient"
+    DemandeLogiciel }o--|| Logiciel : "demande"
+    DemandeLogiciel ||--o{ DemandeLogicielSalle : "assigne à salles"
+    DemandeLogicielSalle }o--|| Salle : "cible"
+    Demande }o--|| Enseignant : "créée par"
+    
+    Demande ..> RequestStatus : uses
+    Demande ..> AcademicYear : uses
+    DemandeLogiciel ..> SoftwareInstallationStatus : uses
+}
+
+' ============================================
+' ATTESTATION AGGREGATE
+' ============================================
+package "Attestation" <<Folder>> {
+    class Attestation <<AggregateRoot>> {
+        + id : UUID
+        + demandeId : UUID
+        + anneeUniversitaire : AcademicYear
+        + dateDébut : Date
+        + dateFin : Date
+        + dateAttestation : DateTime {nullable}
+        + statut : AttestationStatus
+        + commentaire : String
+        + dateRappel : DateTime {nullable}
+        --
+        + confirmer() : Boolean
+        + expirer() : Boolean
+        + envoyerRappel() : Boolean
+        + estDue() : Boolean
+    }
+    
+    Attestation ||--|| Demande : "réatteste"
+    
+    Attestation ..> AttestationStatus : uses
+    Attestation ..> AcademicYear : uses
+}
+
+' ============================================
+' HISTORY AGGREGATE
+' ============================================
+package "History" <<Folder>> {
+    class Historique <<AggregateRoot>> {
+        + id : UUID
+        + demandeId : UUID
+        + demandeLogicielId : UUID {nullable}
+        + logicielId : UUID
+        + typeAction : String {installation, désinstallation, modification_demande, modification_logiciel, changement_statut, fermeture}
+        + dateAction : DateTime
+        + utilisateurId : UUID
+        + ancienÉtat : RequestStatus {nullable}
+        + nouvelÉtat : RequestStatus {nullable}
+        + ancienStatutInstallation : SoftwareInstallationStatus {nullable}
+        + nouveauStatutInstallation : SoftwareInstallationStatus {nullable}
+        + commentaire : String
+        --
+        + enregistrerAction() : Boolean
+    }
+    
+    Historique }o--|| Demande : "traçe"
+    Historique }o--o| DemandeLogiciel : "traçe détail"
+    Historique }o--|| Logiciel : "concerne"
+    Historique }o--|| Utilisateur : "effectuée par"
+    
+    Historique ..> RequestStatus : uses
+    Historique ..> SoftwareInstallationStatus : uses
+}
+
+' ============================================
+' NOTES AND CONSTRAINTS
+' ============================================
+note top of Demande
+  **Règles métier:**
+  - Durée max: 1 an
+  - État initial: nouvelle
+  - Transition: nouvelle -> en_cours -> (installee si tous logiciels installés ou expirée)
+  - Transition fermeture: nouvelle/en_cours -> fermée
+  - Expiration automatique après 1 an si non réattestée
+  - **Une demande peut concerner plusieurs logiciels** (via DemandeLogiciel)
+  - **Une demande peut concerner plusieurs salles** (via DemandeLogicielSalle)
+  - Un enseignant peut créer une seule demande pour plusieurs logiciels dans plusieurs salles
+  - Minimum 1 logiciel et 1 salle par demande (règle de validation)
+  - Chaque logiciel a son propre statut d'installation
+  
+  **Consultation installation:**
+  - obtenirRésuméInstallationParLogiciel() : Vue d'ensemble pour tous les logiciels de la demande
+  - obtenirDétailsInstallationComplets() : Détails complets de toutes les installations
+  - Permet à l'enseignant de voir exactement où chaque logiciel est installé et où il ne l'est pas
+  
+  **Modification de demande:**
+  - Un enseignant peut modifier sa demande SI:
+    * La demande n'est pas "installée" (état != installée)
+    * La demande n'est pas "expirée" (état != expirée)
+    * La demande n'est pas "fermée" (état != fermée)
+    * Les logiciels demandés ne sont pas tous installés (statut != tous_installés)
+  - Permet d'ajouter/supprimer des logiciels
+  - Permet d'ajouter/supprimer des salles par logiciel
+  - Permet de modifier la date souhaitée et le commentaire
+  - Date de dernière modification enregistrée automatiquement
+  
+  **Fermeture de demande:**
+  - Un enseignant peut fermer sa demande SI:
+    * État = "nouvelle" (pending) OU "en_cours"
+    * La demande n'est pas déjà installée, expirée ou fermée
+  - Obligatoire: commentaire de fermeture (raison de la fermeture)
+  - Une demande fermée NE PEUT PAS être supprimée (conservée pour historique)
+  - Une demande fermée NE PEUT PAS être modifiée
+  - Date de fermeture enregistrée automatiquement
+  - La fermeture est irréversible (pas de réouverture possible)
+end note
+
+note right of DemandeLogiciel
+  **Statut d'installation par logiciel:**
+  - en_attente : Pas encore commencé
+  - tous_installés : Toutes les salles demandées sont installées
+  - partiellement_installé : Certaines salles installées, pas toutes
+  - problème : Problème rencontré lors de l'installation
+  - changement : Logiciel modifié/changé par rapport à la demande initiale
+  
+  **Consultation installation par salle:**
+  - obtenirSallesInstallées() : Liste des salles où le logiciel EST installé
+  - obtenirSallesNonInstallées() : Liste des salles où le logiciel N'EST PAS installé
+  - obtenirStatutInstallationParSalle() : Map<Salle, Boolean> - statut pour chaque salle
+  - obtenirDétailsInstallation() : Détails complets (date installation, commentaire) par salle
+  - Permet à l'enseignant de voir exactement où son logiciel est installé
+  
+  **Modification:**
+  - Un logiciel peut être modifié SI:
+    * statutInstallation != tous_installés
+    * La demande parente peut être modifiée (pas installée/expirée)
+  - Permet d'ajouter/supprimer des salles pour ce logiciel
+  - Permet de modifier les salles assignées
+  
+  **Méthodes:**
+  - obtenirStatutInstallation() : Calcule le statut basé sur DemandeLogicielSalle
+  - peutÊtreModifié() : Vérifie si le logiciel peut être modifié
+  - ajouterSalle(), supprimerSalle(), modifierSalles() : Gestion des salles
+end note
+
+note right of ServiceInformatique
+  **Mise à jour installation par logiciel et par salle:**
+  - Le service informatique peut mettre à jour l'état d'installation d'un logiciel spécifique dans une demande
+  - Mise à jour granulaire : par logiciel et par salle (DemandeLogicielSalle)
+  - marquerLogicielInstalléDansSalle() : Marque un logiciel comme installé dans une salle spécifique
+  - marquerLogicielNonInstalléDansSalle() : Marque un logiciel comme non installé dans une salle
+  - mettreÀJourInstallationLogicielParSalle() : Met à jour le statut d'un logiciel dans une salle
+  - mettreÀJourInstallationToutesSalles() : Met à jour le statut d'un logiciel dans toutes ses salles
+  
+  **Informations tracées:**
+  - Date d'installation
+  - Commentaire optionnel
+  - Date de dernière modification
+  - Mise à jour automatique du statut du DemandeLogiciel (tous_installés, partiellement_installé, etc.)
+end note
+
+note bottom of DemandeLogicielSalle
+  **Mise à jour installation par salle:**
+  - Représente l'état d'installation d'un logiciel dans une salle spécifique
+  - marquerInstallée() : Marque comme installé avec date et commentaire
+  - marquerNonInstallée() : Marque comme non installé avec commentaire
+  - mettreÀJourStatut() : Met à jour le statut (installé/non installé)
+  - Date de dernière modification enregistrée automatiquement
+  - Chaque mise à jour déclenche la mise à jour du statut du DemandeLogiciel parent
+end note
+
+note right of Attestation
+  **Processus de réattestation:**
+  - Campagne annuelle automatique
+  - Email envoyé aux enseignants
+  - Si non réattestée: demande expirée
+  - Historique conservé
+end note
+
+note bottom of Salle
+  **Types de salles:**
+  - département: appartient à un seul département
+  - mutualisée: partagée entre plusieurs départements
+  - Une salle mutualisée n'a pas de départementId
+  
+  **Consultation logiciels installés:**
+  - Méthode obtenirLogicielsInstallés() : retourne tous les logiciels installés dans la salle
+  - Via DemandeLogicielSalle (estInstallée = true) → DemandeLogiciel → Logiciel
+  - Permet de voir le catalogue logiciel par salle
+end note
+
+note left of Historique
+  **Traçabilité:**
+  - Immutable (enregistrements non modifiables)
+  - Conserve l'historique complet
+  - Nécessaire pour audit et reporting
+end note
+
+note bottom of Logiciel
+  **Contraintes:**
+  - Durée max: 1 an (365 jours)
+  - Un logiciel peut être installé dans plusieurs salles
+  - Un logiciel peut avoir plusieurs demandes actives
+  
+  **Consultation installations:**
+  - Méthode estInstalléDans(salleId) : vérifie si le logiciel est installé dans une salle
+  - Méthode obtenirInstallations() : retourne toutes les demandes d'installation du logiciel
+  - Permet de voir dans quelles salles un logiciel est installé
+end note
+
+note right of Utilisateur
+  **Authentification:**
+  - SSO obligatoire
+  - Un utilisateur peut avoir plusieurs rôles
+  - Rôles définis par UserRole value object
+end note
+
+@enduml
+
