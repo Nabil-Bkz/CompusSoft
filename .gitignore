@@ -1,0 +1,3 @@
+# Ignore all markdown files in docs directory
+docs/**/*.md
+
