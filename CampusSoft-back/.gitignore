@@ -36,3 +36,4 @@ coverage/
 *.sqlite
 *.sqlite3
 
+docs/**/*.md
