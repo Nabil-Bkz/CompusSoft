@@ -37,16 +37,35 @@ async function bootstrap() {
     .setTitle('CampusSoft API')
     .setDescription('API pour la gestion des logiciels pédagogiques - CampusSoft')
     .setVersion('1.0')
-    .addTag('demandes', 'Gestion des demandes d\'installation logiciel')
-    .addTag('logiciels', 'Catalogue des logiciels')
-    .addTag('infrastructure', 'Gestion départements et salles')
-    .addTag('utilisateurs', 'Gestion des utilisateurs')
-    .addTag('attestations', 'Réattestation annuelle')
-    .addTag('historique', 'Historique et traçabilité')
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api/docs', app, document);
+  
+  // Reconstruire les tags uniquement à partir des opérations réelles
+  const tagsWithOperations = new Set<string>();
+  if (document.paths) {
+    Object.values(document.paths).forEach((path: any) => {
+      if (path && typeof path === 'object') {
+        Object.values(path).forEach((method: any) => {
+          if (method && typeof method === 'object' && method.tags && Array.isArray(method.tags)) {
+            method.tags.forEach((tag: string) => tagsWithOperations.add(tag));
+          }
+        });
+      }
+    });
+  }
+  
+  // Reconstruire complètement le tableau des tags à partir des opérations
+  document.tags = Array.from(tagsWithOperations)
+    .sort()
+    .map((tagName) => ({ name: tagName }));
+  
+  SwaggerModule.setup('api/docs', app, document, {
+    swaggerOptions: {
+      tagsSorter: 'alpha',
+      operationsSorter: 'alpha',
+    },
+  });
 
   const port = process.env.PORT || 3000;
   await app.listen(port);
