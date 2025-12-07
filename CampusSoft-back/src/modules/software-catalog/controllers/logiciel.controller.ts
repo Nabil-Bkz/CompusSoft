@@ -46,7 +46,7 @@ export class LogicielController {
   @ApiResponse({ status: 200, description: 'Liste des logiciels' })
   async findAll(
     @Query('search') search?: string,
-    @Query('actif', new DefaultValuePipe(undefined), ParseBoolPipe)
+    @Query('actif', new DefaultValuePipe(undefined), new ParseBoolPipe({ optional: true }))
     actif?: boolean,
   ) {
     return await this.logicielService.findAll(search, actif);

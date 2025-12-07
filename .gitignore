@@ -1,3 +1,5 @@
 # Ignore all markdown files in docs directory
 docs/**/*.md
 
+# Ignore CampusSoft-front directory
+CampusSoft-front

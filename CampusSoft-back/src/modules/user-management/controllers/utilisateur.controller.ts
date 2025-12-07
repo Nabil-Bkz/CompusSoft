@@ -44,7 +44,7 @@ export class UtilisateurController {
   @ApiQuery({ name: 'actif', required: false, description: 'Filtrer par statut actif', type: Boolean })
   @ApiResponse({ status: 200, description: 'Liste des utilisateurs' })
   async findAll(
-    @Query('actif', new DefaultValuePipe(undefined), ParseBoolPipe)
+    @Query('actif', new DefaultValuePipe(undefined), new ParseBoolPipe({ optional: true }))
     actif?: boolean,
   ) {
     return await this.utilisateurService.findAll(actif);

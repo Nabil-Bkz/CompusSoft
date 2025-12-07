@@ -18,15 +18,17 @@ export class DetailInstallation {
   static fromObject(obj: {
     salleId: string;
     salleNom: string;
-    estInstallée: boolean;
+    estInstallée?: boolean;
+    estInstallee?: boolean; // Support des deux formats
     dateInstallation?: Date | null;
     dateAssignation: Date;
     commentaire?: string | null;
   }): DetailInstallation {
+    const estInstallee = obj.estInstallée !== undefined ? obj.estInstallée : (obj.estInstallee ?? false);
     return new DetailInstallation(
       obj.salleId,
       obj.salleNom,
-      obj.estInstallée,
+      estInstallee,
       obj.dateInstallation || null,
       obj.dateAssignation,
       obj.commentaire || null,
