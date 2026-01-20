@@ -36,6 +36,9 @@ export class Logiciel {
   @Column({ type: 'varchar', length: 255, nullable: true })
   licence: string;
 
+  @Column({ type: 'varchar', length: 500, name: 'logo_url', nullable: true })
+  logoUrl: string;
+
   @CreateDateColumn({ type: 'timestamp', name: 'date_ajout' })
   dateAjout: Date;
 

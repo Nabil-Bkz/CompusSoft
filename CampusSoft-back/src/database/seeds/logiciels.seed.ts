@@ -2,7 +2,7 @@ import { DataSource } from 'typeorm';
 import { Logiciel } from '../../modules/software-catalog/entities/logiciel.entity';
 
 /**
- * Seed des logiciels
+ * Seed des logiciels avec logoUrl (réels)
  */
 export async function seedLogiciels(dataSource: DataSource): Promise<void> {
   const logicielRepository = dataSource.getRepository(Logiciel);
@@ -17,6 +17,7 @@ export async function seedLogiciels(dataSource: DataSource): Promise<void> {
       dureeMax: 365,
       licence: 'Open Source',
       actif: true,
+      logoUrl: 'https://upload.wikimedia.org/wikipedia/commons/9/9a/Visual_Studio_Code_1.35_icon.svg',
     },
     {
       nom: 'MATLAB',
@@ -27,6 +28,7 @@ export async function seedLogiciels(dataSource: DataSource): Promise<void> {
       dureeMax: 365,
       licence: 'Commercial',
       actif: true,
+      logoUrl: 'https://upload.wikimedia.org/wikipedia/commons/2/21/Matlab_Logo.png',
     },
     {
       nom: 'AutoCAD',
@@ -37,6 +39,7 @@ export async function seedLogiciels(dataSource: DataSource): Promise<void> {
       dureeMax: 365,
       licence: 'Commercial',
       actif: true,
+      logoUrl: 'https://upload.wikimedia.org/wikipedia/commons/7/7e/Autocad_2021_logo.svg',
     },
     {
       nom: 'SolidWorks',
@@ -47,6 +50,7 @@ export async function seedLogiciels(dataSource: DataSource): Promise<void> {
       dureeMax: 365,
       licence: 'Commercial',
       actif: true,
+      logoUrl: 'https://upload.wikimedia.org/wikipedia/commons/2/29/SolidWorks_Logo.svg',
     },
     {
       nom: 'Python',
@@ -57,6 +61,7 @@ export async function seedLogiciels(dataSource: DataSource): Promise<void> {
       dureeMax: 365,
       licence: 'Open Source',
       actif: true,
+      logoUrl: 'https://upload.wikimedia.org/wikipedia/commons/c/c3/Python-logo-notext.svg',
     },
     {
       nom: 'IntelliJ IDEA',
@@ -67,6 +72,7 @@ export async function seedLogiciels(dataSource: DataSource): Promise<void> {
       dureeMax: 365,
       licence: 'Commercial / Community Edition',
       actif: true,
+      logoUrl: 'https://upload.wikimedia.org/wikipedia/commons/4/4a/IntelliJ_IDEA_Icon.svg',
     },
     {
       nom: 'Oracle VirtualBox',
@@ -77,6 +83,7 @@ export async function seedLogiciels(dataSource: DataSource): Promise<void> {
       dureeMax: 365,
       licence: 'Open Source',
       actif: true,
+      logoUrl: 'https://upload.wikimedia.org/wikipedia/commons/1/1b/Virtualbox_logo.png',
     },
     {
       nom: 'Git',
@@ -87,6 +94,7 @@ export async function seedLogiciels(dataSource: DataSource): Promise<void> {
       dureeMax: 365,
       licence: 'Open Source',
       actif: true,
+      logoUrl: 'https://upload.wikimedia.org/wikipedia/commons/e/e0/Git-logo.svg',
     },
     {
       nom: 'MySQL Workbench',
@@ -97,6 +105,7 @@ export async function seedLogiciels(dataSource: DataSource): Promise<void> {
       dureeMax: 365,
       licence: 'Open Source',
       actif: true,
+      logoUrl: 'https://upload.wikimedia.org/wikipedia/commons/0/0a/MySQL_textlogo.svg',
     },
     {
       nom: 'SPSS Statistics',
@@ -107,6 +116,7 @@ export async function seedLogiciels(dataSource: DataSource): Promise<void> {
       dureeMax: 365,
       licence: 'Commercial',
       actif: true,
+      logoUrl: 'https://upload.wikimedia.org/wikipedia/commons/9/97/SPSS_Statistics_Logo.svg',
     },
   ];
 
@@ -118,13 +128,15 @@ export async function seedLogiciels(dataSource: DataSource): Promise<void> {
       },
     });
 
-    if (!existing) {
+    if (existing) {
+      // Always update logoUrl for existing logiciels
+      existing.logoUrl = logicielData.logoUrl;
+      await logicielRepository.save(existing);
+      console.log(`🔄 Logiciel mis à jour: ${logicielData.nom} v${logicielData.version}`);
+    } else {
       const logiciel = logicielRepository.create(logicielData);
       await logicielRepository.save(logiciel);
       console.log(`✅ Logiciel créé: ${logicielData.nom} v${logicielData.version}`);
-    } else {
-      console.log(`⚠️  Logiciel existant: ${logicielData.nom} v${logicielData.version}`);
     }
   }
 }
-

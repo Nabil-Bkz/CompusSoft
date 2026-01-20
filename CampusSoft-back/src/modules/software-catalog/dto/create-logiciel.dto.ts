@@ -7,6 +7,7 @@ import {
   Min,
   Max,
   Matches,
+  IsUrl,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -86,6 +87,17 @@ export class CreateLogicielDto {
   @IsOptional()
   @MaxLength(255)
   licence?: string;
+
+  @ApiPropertyOptional({
+    description: 'URL du logo du logiciel',
+    example: 'https://code.visualstudio.com/assets/images/code-stable.png',
+    maxLength: 500,
+  })
+  @IsUrl({}, { message: 'Le logo doit être une URL valide' })
+  @IsOptional()
+  @MaxLength(500)
+  logoUrl?: string;
+
 
   @ApiPropertyOptional({
     description: 'Indique si le logiciel est actif',
