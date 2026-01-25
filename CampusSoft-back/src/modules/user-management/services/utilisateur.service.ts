@@ -4,6 +4,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import * as bcrypt from 'bcrypt';
 import { Utilisateur } from '../entities/utilisateur.entity';
 import { CreateUtilisateurDto } from '../dto/create-utilisateur.dto';
 import { UpdateUtilisateurDto } from '../dto/update-utilisateur.dto';
@@ -24,10 +25,10 @@ export class UtilisateurService {
    * Crée un nouvel utilisateur
    */
   async create(createDto: CreateUtilisateurDto): Promise<Utilisateur> {
-    // Vérifier unicité de l'email
     const existing = await this.utilisateurRepository.findOne({
       where: { email: createDto.email },
     });
+
     if (existing) {
       throw new ConflictException(
         `Un utilisateur avec l'email "${createDto.email}" existe déjà`,
@@ -35,6 +36,11 @@ export class UtilisateurService {
     }
 
     const utilisateur = this.utilisateurRepository.create(createDto);
+
+    if (createDto.password) {
+      utilisateur.password = await bcrypt.hash(createDto.password, 10);
+    }
+
     return await this.utilisateurRepository.save(utilisateur);
   }
 
@@ -71,7 +77,7 @@ export class UtilisateurService {
   }
 
   /**
-   * Retourne un utilisateur par son email
+   * Retourne un utilisateur par email
    */
   async findByEmail(email: string): Promise<Utilisateur | null> {
     return await this.utilisateurRepository.findOne({
@@ -89,11 +95,11 @@ export class UtilisateurService {
   ): Promise<Utilisateur> {
     const utilisateur = await this.findOne(id);
 
-    // Vérifier unicité de l'email si modifié
     if (updateDto.email && updateDto.email !== utilisateur.email) {
       const existing = await this.utilisateurRepository.findOne({
         where: { email: updateDto.email },
       });
+
       if (existing) {
         throw new ConflictException(
           `Un utilisateur avec l'email "${updateDto.email}" existe déjà`,
@@ -101,12 +107,16 @@ export class UtilisateurService {
       }
     }
 
+    if (updateDto.password) {
+      utilisateur.password = await bcrypt.hash(updateDto.password, 10);
+    }
+
     Object.assign(utilisateur, updateDto);
     return await this.utilisateurRepository.save(utilisateur);
   }
 
   /**
-   * Supprime un utilisateur (soft delete)
+   * Soft delete
    */
   async remove(id: string): Promise<void> {
     const utilisateur = await this.findOne(id);
@@ -115,7 +125,7 @@ export class UtilisateurService {
   }
 
   /**
-   * Retourne les enseignants
+   * Enseignants actifs
    */
   async findEnseignants(): Promise<Utilisateur[]> {
     return await this.utilisateurRepository.find({
@@ -126,7 +136,7 @@ export class UtilisateurService {
   }
 
   /**
-   * Retourne les membres du service informatique
+   * Service informatique actifs
    */
   async findServiceInformatique(): Promise<Utilisateur[]> {
     return await this.utilisateurRepository.find({
@@ -136,4 +146,3 @@ export class UtilisateurService {
     });
   }
 }
-

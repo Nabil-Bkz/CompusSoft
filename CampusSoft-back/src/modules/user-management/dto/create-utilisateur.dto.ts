@@ -45,6 +45,15 @@ export class CreateUtilisateurDto {
   prenom: string;
 
   @ApiPropertyOptional({
+    description: 'Mot de passe de l’utilisateur (pour connexion email/password)',
+    maxLength: 128,
+  })
+  @IsString()
+  @IsOptional()
+  @MaxLength(128)
+  password?: string;
+
+  @ApiPropertyOptional({
     description: 'ID SSO (pour intégration future)',
     example: 'sso-123456',
     maxLength: 255,

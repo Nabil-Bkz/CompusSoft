@@ -8,6 +8,9 @@ import { UserManagementModule } from './modules/user-management/user-management.
 import { RequestManagementModule } from './modules/request-management/request-management.module';
 import { AttestationModule } from './modules/attestation/attestation.module';
 import { HistoryModule } from './modules/history/history.module';
+import { AuthModule } from './modules/auth/auth.module';
+// import { APP_GUARD } from '@nestjs/core';
+// import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 
 @Module({
   imports: [
@@ -27,9 +30,15 @@ import { HistoryModule } from './modules/history/history.module';
     RequestManagementModule,
     AttestationModule,
     HistoryModule,
+    AuthModule,
   ],
   controllers: [],
-  providers: [],
+  providers: [
+  // {
+  //   provide: APP_GUARD,
+  //   useClass: JwtAuthGuard,
+  // },
+  ],
 })
 export class AppModule {}
 
