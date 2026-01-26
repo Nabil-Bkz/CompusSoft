@@ -6,8 +6,10 @@ import { DemandeLogicielSalle } from './entities/demande-logiciel-salle.entity';
 import { DemandeService } from './services/demande.service';
 import { InstallationService } from './services/installation.service';
 import { InstallationSyncService } from './services/installation-sync.service';
+import { DemandeLogicielService } from './services/demande-logiciel.service';
 import { DemandeController } from './controllers/demande.controller';
 import { InstallationController } from './controllers/installation.controller';
+import { DemandeLogicielController } from './controllers/demande-logiciel.controller';
 // Import des entités des autres modules pour les relations
 import { Logiciel } from '../software-catalog/entities/logiciel.entity';
 import { Salle } from '../infrastructure/entities/salle.entity';
@@ -31,16 +33,18 @@ import { HistoryModule } from '../history/history.module';
     ]),
     forwardRef(() => HistoryModule), // Permet l'injection de HistoriqueService avec forwardRef
   ],
-  controllers: [DemandeController, InstallationController],
+  controllers: [DemandeController, InstallationController, DemandeLogicielController],
   providers: [
     DemandeService,
     InstallationService,
     InstallationSyncService,
+    DemandeLogicielService,
   ],
   exports: [
     DemandeService,
     InstallationService,
     InstallationSyncService,
+    DemandeLogicielService,
     TypeOrmModule,
   ],
 })

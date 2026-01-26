@@ -1,0 +1,397 @@
+# CampusSoft Backend - Cursor Rules
+
+## Project Overview
+CampusSoft is a NestJS backend application for managing educational software installations in university departments. The project follows Domain-Driven Design (DDD) principles with a modular architecture organized by Aggregate Roots.
+
+## Tech Stack
+- **Framework**: NestJS 11.x
+- **Language**: TypeScript (ES2021)
+- **ORM**: TypeORM 0.3.x
+- **Database**: PostgreSQL
+- **Validation**: class-validator, class-transformer
+- **Documentation**: Swagger/OpenAPI
+- **Authentication**: JWT (Passport.js)
+- **Testing**: Jest
+
+## Architecture Principles
+
+### Domain-Driven Design (DDD)
+- Modules are organized by Aggregate Root
+- Value Objects are used for domain concepts (AcademicYear, RequestStatus, UserRole, etc.)
+- Custom domain exceptions for business rule violations
+- Entities contain domain methods, not just data
+- Services encapsulate business logic
+
+### Module Structure
+Each module follows this structure:
+```
+modules/
+  ├── {module-name}/
+  │   ├── {module-name}.module.ts
+  │   ├── controllers/
+  │   ├── services/
+  │   ├── entities/
+  │   ├── dto/
+  │   └── guards/ (if module-specific)
+```
+
+### Current Modules
+1. **common** - Shared code (Value Objects, Exceptions, Interceptors, Guards, Decorators)
+2. **infrastructure** - Départements and Salles (Aggregate Roots)
+3. **software-catalog** - Logiciels (software catalog)
+4. **user-management** - Utilisateurs, Enseignants, Service Informatique, Administrateurs
+5. **request-management** - Demandes and Installations workflow
+6. **attestation** - Annual re-attestation system
+7. **history** - Complete audit trail
+8. **auth** - Authentication and authorization
+
+## Code Style & Conventions
+
+### Naming Conventions
+- **French domain terms**: Use French for business domain concepts (demande, logiciel, salle, attestation, etc.)
+- **English for technical terms**: Use English for technical code (controller, service, entity, dto, etc.)
+- **Entities**: PascalCase (e.g., `Demande`, `Utilisateur`, `Logiciel`)
+- **DTOs**: PascalCase with suffix `Dto` (e.g., `CreateDemandeDto`, `UpdateSalleDto`)
+- **Services**: PascalCase with suffix `Service` (e.g., `DemandeService`, `AuthService`)
+- **Controllers**: PascalCase with suffix `Controller` (e.g., `DemandeController`)
+- **Value Objects**: PascalCase (e.g., `RequestStatus`, `AcademicYear`, `UserRole`)
+- **Methods**: camelCase (e.g., `createDemande`, `obtenirNomComplet`)
+- **Files**: kebab-case (e.g., `demande.service.ts`, `create-demande.dto.ts`)
+
+### TypeScript Path Aliases
+Use path aliases defined in `tsconfig.json`:
+- `@/*` → `src/*`
+- `@common/*` → `src/common/*`
+- `@modules/*` → `src/modules/*`
+- `@config/*` → `src/config/*`
+
+Example:
+```typescript
+import { RequestStatus } from '@common/value-objects/request-status.vo';
+import { DemandeService } from '@modules/request-management/services/demande.service';
+```
+
+## Entity Patterns
+
+### Entity Structure
+```typescript
+@Entity('table_name')
+export class EntityName {
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
+
+  // Columns with proper types
+  @Column({ type: 'varchar', length: 255 })
+  nom: string;
+
+  // Relations
+  @OneToMany(() => RelatedEntity, (rel) => rel.parent)
+  relations: RelatedEntity[];
+
+  // Domain methods (not just getters/setters)
+  obtenirNomComplet(): string {
+    // Business logic here
+  }
+}
+```
+
+### Key Principles
+- Use UUID for primary keys
+- Include `@CreateDateColumn` for audit fields
+- Add domain methods to entities (e.g., `obtenirNomComplet()`, `possedeSalle()`)
+- Use TypeORM decorators for relations
+- Keep entities focused on domain logic
+
+## DTO Patterns
+
+### DTO Structure
+```typescript
+export class CreateEntityDto {
+  @ApiProperty({
+    description: 'Description',
+    example: 'Example value',
+    maxLength: 255,
+  })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(255)
+  nom: string;
+
+  @ApiPropertyOptional({
+    description: 'Optional field',
+  })
+  @IsString()
+  @IsOptional()
+  description?: string;
+}
+```
+
+### Validation Rules
+- Always use `class-validator` decorators
+- Always include `@ApiProperty` or `@ApiPropertyOptional` for Swagger
+- Use appropriate validators: `@IsString()`, `@IsNotEmpty()`, `@IsOptional()`, `@IsEmail()`, etc.
+- Use `@MaxLength()`, `@MinLength()` for strings
+- Use `@IsUUID()` for UUID fields
+- Use `@IsEnum()` for enum fields
+
+## Service Patterns
+
+### Service Structure
+```typescript
+@Injectable()
+export class EntityService {
+  constructor(
+    @InjectRepository(Entity)
+    private readonly entityRepository: Repository<Entity>,
+    private readonly dataSource: DataSource,
+    @Inject(forwardRef(() => 'RelatedService'))
+    @Optional()
+    private readonly relatedService?: any,
+  ) {}
+
+  async create(dto: CreateEntityDto): Promise<Entity> {
+    // Validation
+    // Business logic
+    // Transaction if needed
+    // Return entity
+  }
+}
+```
+
+### Key Principles
+- Use `@Injectable()` decorator
+- Inject repositories with `@InjectRepository()`
+- Use `DataSource` for transactions
+- Use `forwardRef()` and `@Optional()` to handle circular dependencies
+- Throw custom exceptions: `AggregateNotFoundException`, `BusinessRuleViolationException`, `InvalidStateTransitionException`
+- Use Value Objects for domain validation
+- Always validate business rules before persisting
+
+### Transaction Handling
+For complex operations requiring multiple database operations:
+```typescript
+const queryRunner = this.dataSource.createQueryRunner();
+await queryRunner.connect();
+await queryRunner.startTransaction();
+
+try {
+  // Multiple operations
+  await queryRunner.commitTransaction();
+} catch (error) {
+  await queryRunner.rollbackTransaction();
+  throw error;
+} finally {
+  await queryRunner.release();
+}
+```
+
+## Controller Patterns
+
+### Controller Structure
+```typescript
+@Controller('resource-name')
+@ApiTags('Resource Name')
+export class ResourceController {
+  constructor(private readonly service: ResourceService) {}
+
+  @Post()
+  @ApiOperation({ summary: 'Create resource' })
+  @ApiResponse({ status: 201, description: 'Resource created' })
+  @ApiResponse({ status: 400, description: 'Bad request' })
+  async create(@Body() dto: CreateResourceDto): Promise<Resource> {
+    return this.service.create(dto);
+  }
+}
+```
+
+### Key Principles
+- Use `@Controller()` with kebab-case route prefix
+- Always include `@ApiTags()` for Swagger grouping
+- Use `@ApiOperation()` for endpoint descriptions
+- Use `@ApiResponse()` for all possible responses
+- Use appropriate HTTP decorators: `@Get()`, `@Post()`, `@Put()`, `@Patch()`, `@Delete()`
+- Use `@Body()`, `@Param()`, `@Query()` for request data
+- Return typed responses (entities or DTOs)
+
+## Value Objects
+
+### Value Object Pattern
+Value Objects are immutable and contain validation logic:
+```typescript
+export class ValueObjectName {
+  private constructor(private readonly value: string) {}
+
+  static fromValue(value: string): ValueObjectName {
+    // Validation
+    if (!isValid(value)) {
+      throw new BusinessRuleViolationException('Invalid value');
+    }
+    return new ValueObjectName(value);
+  }
+
+  getValue(): string {
+    return this.value;
+  }
+}
+```
+
+### Current Value Objects
+- `AcademicYear` - Academic year validation
+- `RequestStatus` - Request state machine
+- `SoftwareInstallationStatus` - Installation status calculation
+- `UserRole` - User roles enum with helper functions
+- `AttestationStatus` - Attestation state
+- `DetailInstallation` - Installation details
+- `ResumeInstallation` - Installation summary
+
+## Exception Handling
+
+### Custom Exceptions
+Use domain-specific exceptions:
+- `AggregateNotFoundException` - When an aggregate root is not found
+- `BusinessRuleViolationException` - When a business rule is violated
+- `InvalidStateTransitionException` - When a state transition is invalid
+
+### Exception Usage
+```typescript
+if (!entity) {
+  throw new AggregateNotFoundException('EntityName', id);
+}
+
+if (!isValidBusinessRule()) {
+  throw new BusinessRuleViolationException('Rule violation message');
+}
+
+if (!canTransitionTo(newState)) {
+  throw new InvalidStateTransitionException(currentState, newState);
+}
+```
+
+## Authentication & Authorization
+
+### Guards
+- `JwtAuthGuard` - Validates JWT token
+- `RolesGuard` - Validates user roles
+- Use `@UseGuards(JwtAuthGuard, RolesGuard)` on protected endpoints
+- Use `@Roles(UserRole.ADMINISTRATEUR)` decorator for role-based access
+
+### Current Status
+- Authentication is implemented but not globally enforced
+- Guards are available but commented out in `app.module.ts`
+- All endpoints are currently public for development
+
+## Database Patterns
+
+### TypeORM Configuration
+- Use `TypeOrmModule.forRootAsync()` with factory pattern
+- Database config in `src/config/database.config.ts`
+- Auto-sync enabled in development mode
+- Use migrations for production
+
+### Seeding
+- Seed files in `src/database/seeds/`
+- Run with `npm run seed`
+- Seeds: départements, salles, logiciels, utilisateurs
+
+## API Conventions
+
+### Global Prefix
+- All routes use `/api` prefix (configured in `main.ts`)
+
+### Swagger Documentation
+- Available at `/api/docs`
+- All endpoints must be documented
+- Use `@ApiTags()`, `@ApiOperation()`, `@ApiResponse()` decorators
+
+### Response Format
+- Success: Return entity or DTO directly
+- Errors: Use NestJS exception filters (automatic JSON format)
+- Status codes: 200 (OK), 201 (Created), 400 (Bad Request), 401 (Unauthorized), 403 (Forbidden), 404 (Not Found), 500 (Internal Server Error)
+
+## Testing Patterns
+
+### Test Structure
+- Unit tests: Test services in isolation
+- E2E tests: Test complete workflows
+- Use Jest as testing framework
+- Mock repositories and external dependencies
+
+## Common Patterns
+
+### History/Audit Trail
+- All significant actions are logged to `Historique` entity
+- Use `HistoriqueService` to record actions
+- Include: action type, user, entity, timestamp, details
+
+### State Machines
+- Use Value Objects for state management (e.g., `RequestStatus`)
+- Validate state transitions with helper functions
+- Throw `InvalidStateTransitionException` for invalid transitions
+
+### Circular Dependencies
+- Use `forwardRef()` when modules depend on each other
+- Use `@Optional()` and string tokens for optional dependencies
+- Example: `@Inject(forwardRef(() => 'HistoriqueService'))`
+
+## File Organization
+
+### Directory Structure
+```
+src/
+├── common/              # Shared code
+│   ├── decorators/     # Custom decorators
+│   ├── exceptions/     # Domain exceptions
+│   ├── guards/         # Auth guards
+│   ├── interceptors/   # Global interceptors
+│   └── value-objects/  # Value Objects
+├── config/             # Configuration files
+├── database/           # Seeds and migrations
+├── modules/            # Feature modules
+└── types/              # TypeScript type definitions
+```
+
+## Best Practices
+
+1. **Always validate input** using DTOs and class-validator
+2. **Use Value Objects** for domain concepts instead of primitives
+3. **Throw domain exceptions** instead of generic HTTP exceptions
+4. **Use transactions** for operations that modify multiple aggregates
+5. **Document all endpoints** with Swagger decorators
+6. **Keep services focused** on business logic, not infrastructure
+7. **Use domain methods** in entities for business logic
+8. **Log important actions** to history
+9. **Handle errors gracefully** with appropriate HTTP status codes
+10. **Follow French naming** for domain concepts, English for technical terms
+
+## Development Workflow
+
+### Running the Application
+```bash
+npm run start:dev      # Development with watch mode
+npm run build          # Build for production
+npm run start:prod     # Production mode
+```
+
+### Database
+```bash
+npm run seed           # Seed database
+npm run migration:generate -- -n MigrationName
+npm run migration:run
+```
+
+### Code Quality
+```bash
+npm run lint           # Run ESLint
+npm run format         # Format with Prettier
+npm test               # Run tests
+```
+
+## Notes
+
+- The project uses French for business domain terminology
+- All business logic should be in services, not controllers
+- Entities should contain domain methods, not just data
+- Value Objects enforce business rules at the type level
+- History tracking is automatic for most operations
+- Authentication is ready but not enforced globally (for development)
+
