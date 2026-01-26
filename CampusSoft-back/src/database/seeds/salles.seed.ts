@@ -2,6 +2,7 @@ import { DataSource } from 'typeorm';
 import { Salle } from '../../modules/infrastructure/entities/salle.entity';
 import { Departement } from '../../modules/infrastructure/entities/departement.entity';
 import { RoomType } from '../../common/value-objects/room-type.vo';
+import { Logiciel } from '@/modules/software-catalog/entities/logiciel.entity';
 
 /**
  * Seed des salles
@@ -9,6 +10,7 @@ import { RoomType } from '../../common/value-objects/room-type.vo';
 export async function seedSalles(dataSource: DataSource): Promise<void> {
   const salleRepository = dataSource.getRepository(Salle);
   const departementRepository = dataSource.getRepository(Departement);
+  const logicielRepository = dataSource.getRepository(Logiciel);
 
   // Récupérer les départements
   const info = await departementRepository.findOne({ where: { code: 'INFO' } });
@@ -146,5 +148,47 @@ export async function seedSalles(dataSource: DataSource): Promise<void> {
       console.log(`⚠️  Salle existante: ${salleData.nom}`);
     }
   }
-}
 
+  const vscode = await logicielRepository.findOne({ where: { nom: 'Visual Studio Code' } });
+  const python = await logicielRepository.findOne({ where: { nom: 'Python' } });
+  const git = await logicielRepository.findOne({ where: { nom: 'Git' } });
+  const autocad = await logicielRepository.findOne({ where: { nom: 'AutoCAD' } });
+  const matlab = await logicielRepository.findOne({ where: { nom: 'MATLAB' } });
+
+  // 2. Installer dans la salle Info A101 (VS Code + Python + Git)
+  const salleA101 = await salleRepository.findOne({ 
+    where: { nom: 'A101' }, 
+    relations: ['logiciels']
+  });
+  
+  if (salleA101 && vscode && python && git) {
+    salleA101.logiciels = [vscode, python, git];
+    await salleRepository.save(salleA101);
+    console.log(`💻 Logiciels installés dans A101 : VS Code, Python, Git`);
+  }
+
+  // 3. Installer dans la salle Méca D101 (AutoCAD + SolidWorks)
+  const salleD101 = await salleRepository.findOne({ 
+    where: { nom: 'D101' }, 
+    relations: ['logiciels']
+  });
+  const solidworks = await logicielRepository.findOne({ where: { nom: 'SolidWorks' } });
+
+  if (salleD101 && autocad && solidworks) {
+    salleD101.logiciels = [autocad, solidworks];
+    await salleRepository.save(salleD101);
+    console.log(`🏗️ Logiciels installés dans D101 : AutoCAD, SolidWorks`);
+  }
+  
+  // 4. Installer dans la salle Elec B101 (MATLAB + Python)
+  const salleB101 = await salleRepository.findOne({ 
+    where: { nom: 'B101' },
+    relations: ['logiciels']
+  });
+  
+  if (salleB101 && matlab && python) {
+    salleB101.logiciels = [matlab, python];
+    await salleRepository.save(salleB101);
+    console.log(`⚡ Logiciels installés dans B101 : MATLAB, Python`);
+  }
+}

@@ -6,13 +6,14 @@ import { DepartementService } from './services/departement.service';
 import { SalleService } from './services/salle.service';
 import { DepartementController } from './controllers/departement.controller';
 import { SalleController } from './controllers/salle.controller';
+import { Logiciel } from '../software-catalog/entities/logiciel.entity';
 
 /**
  * Module Infrastructure
  * Gère les départements et les salles
  */
 @Module({
-  imports: [TypeOrmModule.forFeature([Departement, Salle])],
+  imports: [TypeOrmModule.forFeature([Departement, Salle, Logiciel])],
   controllers: [DepartementController, SalleController],
   providers: [DepartementService, SalleService],
   exports: [DepartementService, SalleService, TypeOrmModule],

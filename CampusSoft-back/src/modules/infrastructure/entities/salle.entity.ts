@@ -5,9 +5,12 @@ import {
   ManyToOne,
   JoinColumn,
   CreateDateColumn,
+  JoinTable,
+  ManyToMany,
 } from 'typeorm';
 import { Departement } from './departement.entity';
 import { RoomType } from '../../../common/value-objects/room-type.vo';
+import { Logiciel } from '@/modules/software-catalog/entities/logiciel.entity';
 
 /**
  * Entité Salle - Entity (part of Infrastructure Aggregate)
@@ -44,7 +47,21 @@ export class Salle {
   dateCreation: Date;
 
   // Relations
-  @ManyToOne(() => Departement, (departement) => departement.salles, {
+  @ManyToMany(() => Logiciel, (logiciel) => logiciel.salles)
+  @JoinTable({
+    name: 'salle_logiciels',
+    joinColumn: {
+      name: 'salle_id',
+      referencedColumnName: 'id',
+    },
+    inverseJoinColumn: {
+      name: 'logiciel_id',
+      referencedColumnName: 'id',
+    },
+  })
+  logiciels: Logiciel[];
+  
+   @ManyToOne(() => Departement, (departement) => departement.salles, {
     nullable: true,
     onDelete: 'SET NULL',
   })
