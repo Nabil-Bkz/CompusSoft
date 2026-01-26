@@ -109,6 +109,7 @@ export class UtilisateurService {
 
     if (updateDto.password) {
       utilisateur.password = await bcrypt.hash(updateDto.password, 10);
+      delete updateDto.password;
     }
 
     Object.assign(utilisateur, updateDto);
