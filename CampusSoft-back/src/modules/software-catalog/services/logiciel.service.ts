@@ -1,12 +1,15 @@
 import { Injectable, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Like } from 'typeorm';
+import { Repository, Like, In } from 'typeorm';
 import { Logiciel } from '../entities/logiciel.entity';
 import { CreateLogicielDto } from '../dto/create-logiciel.dto';
 import { UpdateLogicielDto } from '../dto/update-logiciel.dto';
 import { AggregateNotFoundException } from '../../../common/exceptions/aggregate-not-found.exception';
 import { BusinessRuleViolationException } from '../../../common/exceptions/business-rule-violation.exception';
 import { SoftwareVersion } from '../../../common/value-objects/software-version.vo';
+import { DemandeLogiciel } from '../../request-management/entities/demande-logiciel.entity';
+import { DemandeLogicielSalle } from '../../request-management/entities/demande-logiciel-salle.entity';
+import { Salle } from '../../infrastructure/entities/salle.entity';
 
 /**
  * Service pour la gestion des logiciels
@@ -16,6 +19,12 @@ export class LogicielService {
   constructor(
     @InjectRepository(Logiciel)
     private readonly logicielRepository: Repository<Logiciel>,
+    @InjectRepository(DemandeLogiciel)
+    private readonly demandeLogicielRepository: Repository<DemandeLogiciel>,
+    @InjectRepository(DemandeLogicielSalle)
+    private readonly demandeLogicielSalleRepository: Repository<DemandeLogicielSalle>,
+    @InjectRepository(Salle)
+    private readonly salleRepository: Repository<Salle>,
   ) {}
 
   /**
@@ -151,22 +160,99 @@ export class LogicielService {
 
   /**
    * Vérifie si un logiciel est installé dans une salle
-   * (À implémenter quand le module Request Management sera prêt)
+   * Vérifie à la fois la relation ManyToMany directe et les DemandeLogicielSalle
    */
   async estInstalleDans(salleId: string, logicielId: string): Promise<boolean> {
     await this.findOne(logicielId); // Vérifier que le logiciel existe
-    // TODO: Implémenter quand DemandeLogicielSalle sera disponible
-    return false;
+
+    // 1. Vérifier dans la relation ManyToMany directe (salle_logiciels)
+    const salleAvecLogiciel = await this.salleRepository
+      .createQueryBuilder('salle')
+      .innerJoin('salle.logiciels', 'logiciel')
+      .where('salle.id = :salleId', { salleId })
+      .andWhere('logiciel.id = :logicielId', { logicielId })
+      .getOne();
+
+    if (salleAvecLogiciel) {
+      return true;
+    }
+
+    // 2. Vérifier dans les DemandeLogicielSalle
+    const demandeLogiciels = await this.demandeLogicielRepository.find({
+      where: { logicielId },
+      select: ['id'],
+    });
+
+    if (demandeLogiciels.length === 0) {
+      return false;
+    }
+
+    const demandeLogicielIds = demandeLogiciels.map((dl) => dl.id);
+
+    // Vérifier si une installation existe pour cette salle avec estInstallee = true
+    const installation = await this.demandeLogicielSalleRepository.findOne({
+      where: {
+        demandeLogicielId: In(demandeLogicielIds),
+        salleId,
+        estInstallee: true,
+      },
+    });
+
+    return !!installation;
   }
 
   /**
    * Retourne les salles où un logiciel est installé
-   * (À implémenter quand le module Request Management sera prêt)
+   * Utilise la relation ManyToMany directe (salle_logiciels) et les DemandeLogicielSalle
    */
-  async findSallesInstallation(logicielId: string): Promise<any[]> {
+  async findSallesInstallation(logicielId: string): Promise<Salle[]> {
     await this.findOne(logicielId); // Vérifier que le logiciel existe
-    // TODO: Implémenter quand DemandeLogicielSalle sera disponible
-    return [];
+
+    const sallesUniques = new Map<string, Salle>();
+
+    // 1. Chercher dans la relation ManyToMany directe (salle_logiciels)
+    // Cette relation est utilisée par l'API /api/salles/:id/logiciels
+    const sallesAvecLogiciel = await this.salleRepository
+      .createQueryBuilder('salle')
+      .innerJoin('salle.logiciels', 'logiciel')
+      .where('logiciel.id = :logicielId', { logicielId })
+      .leftJoinAndSelect('salle.departement', 'departement')
+      .getMany();
+
+    // Ajouter les salles de la relation ManyToMany
+    for (const salle of sallesAvecLogiciel) {
+      if (!sallesUniques.has(salle.id)) {
+        sallesUniques.set(salle.id, salle);
+      }
+    }
+
+    // 2. Chercher aussi dans les DemandeLogicielSalle où estInstallee = true
+    // Pour inclure les installations via le système de demandes
+    const demandeLogiciels = await this.demandeLogicielRepository.find({
+      where: { logicielId },
+      select: ['id'],
+    });
+
+    if (demandeLogiciels.length > 0) {
+      const demandeLogicielIds = demandeLogiciels.map((dl) => dl.id);
+
+      const installations = await this.demandeLogicielSalleRepository.find({
+        where: {
+          demandeLogicielId: In(demandeLogicielIds),
+          estInstallee: true,
+        },
+        relations: ['salle', 'salle.departement'],
+      });
+
+      // Ajouter les salles des installations
+      for (const installation of installations) {
+        if (installation.salle && !sallesUniques.has(installation.salle.id)) {
+          sallesUniques.set(installation.salle.id, installation.salle);
+        }
+      }
+    }
+
+    return Array.from(sallesUniques.values());
   }
 }
 
