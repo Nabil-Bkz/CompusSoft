@@ -3,8 +3,10 @@ import {
   PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
+  ManyToMany,
 } from 'typeorm';
 import { SoftwareVersion } from '../../../common/value-objects/software-version.vo';
+import { Salle } from '@/modules/infrastructure/entities/salle.entity';
 
 /**
  * Entité Logiciel - Aggregate Root
@@ -44,6 +46,9 @@ export class Logiciel {
 
   @Column({ type: 'boolean', default: true })
   actif: boolean;
+
+  @ManyToMany(() => Salle, (salle) => salle.logiciels)
+  salles: Salle[];
 
   // Domain methods
   /**

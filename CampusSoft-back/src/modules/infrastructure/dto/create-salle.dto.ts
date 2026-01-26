@@ -7,6 +7,7 @@ import {
   IsUUID,
   MaxLength,
   Min,
+  IsArray,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { RoomType } from '../../../common/value-objects/room-type.vo';
@@ -69,5 +70,9 @@ export class CreateSalleDto {
   @IsUUID()
   @IsOptional()
   departementId?: string;
-}
 
+  @IsOptional()
+  @IsArray()
+  @IsUUID('4', { each: true })
+  logicielIds?: string[];
+}
