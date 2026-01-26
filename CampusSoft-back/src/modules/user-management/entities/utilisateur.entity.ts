@@ -29,6 +29,9 @@ export class Utilisateur {
   @Column({ type: 'varchar', length: 255 })
   prenom: string;
 
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  password?: string;
+
   @Column({ type: 'varchar', length: 255, nullable: true, name: 'sso_id' })
   ssoId: string;
 
